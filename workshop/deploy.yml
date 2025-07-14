@@ -1,0 +1,129 @@
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub
+        - ${ResourceName} From Stack ${AWS::StackName}
+        - ResourceName: Api
+      StageName: Dev
+      DefinitionBody:
+        openapi: '3.0.1'
+        info: 
+          description: "Created by Me"
+          version: "2025-07-14T10:44:15Z"
+          title: "webhook"
+        paths:
+          /webhook:
+            post:
+              x-amazon-apigateway-integration:
+                payloadFormatVersion: '2.0'
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lbd_validation.Arn}/invocations
+              responses: 
+                '200':
+                  description: 'Success'
+      EndpointConfiguration:
+        Type: REGIONAL
+
+  lbd_validation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: lbd_validation
+      CodeUri: src/lambdas/validation
+      Handler: index.handler
+      Runtime: python3.13
+      MemorySize: 128
+      Timeout: 10
+      Events:
+        ApiPOSTwebhook:
+          Type: Api
+          Properties:
+            Path: /webhook
+            Method: POST
+            RestApiId: !Ref Api
+      Environment:
+        Variables:
+          QUEUE_NAME: !GetAtt Queue.QueueName
+          QUEUE_ARN: !GetAtt Queue.Arn
+          QUEUE_URL: !Ref Queue
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt Queue.Arn
+      Architectures:
+        - arm64
+
+  lbd_validationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${lbd_validation}
+      RetentionInDays: 5
+  
+  lbd_classification:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: lbd_classification
+      CodeUri: src/lambdas/classification
+      Handler: index.handler
+      Runtime: python3.13
+      MemorySize: 128
+      Timeout: 10
+      ReservedConcurrentExecutions: 2
+      Events:
+        Queue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt Queue.Arn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 30
+            ScalingConfig:
+              MaximumConcurrency: 2
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref NewsDataTable
+          TABLE_ARN: !GetAtt NewsDataTable.Arn
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt NewsDataTable.Arn
+      Architectures:
+        - arm64
+  
+  lbd_classificationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${lbd_classification}
+      RetentionInDays: 5
+  
+  NewsDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: 'N'
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+  
+  Queue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 345600
+      ReceiveMessageWaitTimeSeconds: 20

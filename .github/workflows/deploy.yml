@@ -1,0 +1,72 @@
+name: Deploy SAM Application
+
+on:
+  push:
+    branches: [ main-deploy ]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  S3_STACK_NAME: sam-deployment-bucket-stack
+  APP_STACK_NAME: webhook-processor-stack
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Deploy S3 bucket
+      run: |
+        aws cloudformation deploy \
+          --template-file s3-bucket.yml \
+          --stack-name ${{ env.S3_STACK_NAME }} \
+          --parameter-overrides Environment=dev \
+          --capabilities CAPABILITY_IAM \
+          --region ${{ env.AWS_REGION }}
+    
+    - name: Get bucket name
+      id: bucket
+      run: |
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name ${{ env.S3_STACK_NAME }} \
+          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+          --output text)
+        echo "bucket-name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
+        echo "Deployment bucket: ${BUCKET_NAME}"
+    
+    - name: Set up SAM CLI
+      uses: aws-actions/setup-sam@v2
+      with:
+        use-installer: true
+    
+    - name: SAM Build
+      run: |
+        cd workshop
+        sam build
+    
+    - name: SAM Deploy
+      run: |
+        cd workshop
+        sam deploy \
+          --no-confirm-changeset \
+          --no-fail-on-empty-changeset \
+          --stack-name ${{ env.APP_STACK_NAME }} \
+          --s3-bucket ${{ steps.bucket.outputs.bucket-name }} \
+          --capabilities CAPABILITY_IAM \
+          --region ${{ env.AWS_REGION }}
+    
+    - name: Show deployment info
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "S3 Stack: ${{ env.S3_STACK_NAME }}"
+        echo "App Stack: ${{ env.APP_STACK_NAME }}"
+        echo "Bucket: ${{ steps.bucket.outputs.bucket-name }}"
