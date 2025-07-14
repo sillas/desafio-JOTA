@@ -1,5 +1,29 @@
 Transform: AWS::Serverless-2016-10-31
 
+Parameters:
+  Owner:
+    Type: String
+    Default: Juser
+    Description: 'Owner name'
+  
+  Project:
+    Type: String
+    Default: JNewsClassifier
+    Description: 'Project name'
+
+  Environment:
+    Type: String
+    Default: Dev
+    AllowedValues: [Dev, Staging, Prod]
+    Description: 'Environment name'
+  
+  RetentionDays:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 365
+    Description: 'Log retention in days'
+
 Resources:
   Api:
     Type: AWS::Serverless::Api
@@ -7,7 +31,7 @@ Resources:
       Name: !Sub
         - ${ResourceName} From Stack ${AWS::StackName}
         - ResourceName: Api
-      StageName: Dev
+      StageName: !Ref Environment
       DefinitionBody:
         openapi: '3.0.1'
         info: 
@@ -21,19 +45,23 @@ Resources:
                 payloadFormatVersion: '2.0'
                 httpMethod: POST
                 type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lbd_validation.Arn}/invocations
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LbdValidation.Arn}/invocations
               responses: 
                 '200':
                   description: 'Success'
       EndpointConfiguration:
         Type: REGIONAL
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref Project
+        Owner: !Ref Owner
 
-  lbd_validation:
+  LbdValidation:
     Type: AWS::Serverless::Function
     Properties:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
-        - ResourceName: lbd_validation
+        - ResourceName: LbdValidation
       CodeUri: src/lambdas/validation
       Handler: index.handler
       Runtime: python3.13
@@ -59,19 +87,24 @@ Resources:
               Resource: !GetAtt Queue.Arn
       Architectures:
         - arm64
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref Project
+        Owner: !Ref Owner
 
-  lbd_validationLogGroup:
+
+  LbdValidationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${lbd_validation}
-      RetentionInDays: 5
+      LogGroupName: !Sub /aws/lambda/${LbdValidation}
+      RetentionInDays: !Ref RetentionDays
   
-  lbd_classification:
+  LbdClassification:
     Type: AWS::Serverless::Function
     Properties:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
-        - ResourceName: lbd_classification
+        - ResourceName: LbdClassification
       CodeUri: src/lambdas/classification
       Handler: index.handler
       Runtime: python3.13
@@ -100,12 +133,17 @@ Resources:
               Resource: !GetAtt NewsDataTable.Arn
       Architectures:
         - arm64
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref Project
+        Owner: !Ref Owner
+
   
-  lbd_classificationLogGroup:
+  LbdClassificationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${lbd_classification}
-      RetentionInDays: 5
+      LogGroupName: !Sub /aws/lambda/${LbdClassification}
+      RetentionInDays: !Ref RetentionDays
   
   NewsDataTable:
     Type: AWS::DynamoDB::Table
@@ -121,9 +159,38 @@ Resources:
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref Project
+        - Key: Owner
+          Value: !Ref Owner
+
   
   Queue:
     Type: AWS::SQS::Queue
     Properties:
       MessageRetentionPeriod: 345600
       ReceiveMessageWaitTimeSeconds: 20
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref Project
+        - Key: Owner
+          Value: !Ref Owner
+
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Dev"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiEndpoint"
+  
+  QueueUrl:
+    Description: SQS Queue URL
+    Value: !Ref Queue
+    Export:
+      Name: !Sub "${AWS::StackName}-QueueUrl"
