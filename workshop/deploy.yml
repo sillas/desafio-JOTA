@@ -62,11 +62,14 @@ Resources:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
         - ResourceName: LbdValidation
-      CodeUri: src/lambdas/validation
+      CodeUri: ../src/lambdas/validation
       Handler: index.handler
       Runtime: python3.13
+      Layers:
+          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-arm64:19
       MemorySize: 128
       Timeout: 10
+      ReservedConcurrentExecutions: 2
       Events:
         ApiPOSTwebhook:
           Type: Api
@@ -76,8 +79,6 @@ Resources:
             RestApiId: !Ref Api
       Environment:
         Variables:
-          QUEUE_NAME: !GetAtt Queue.QueueName
-          QUEUE_ARN: !GetAtt Queue.Arn
           QUEUE_URL: !Ref Queue
       Policies:
         - Version: '2012-10-17'
@@ -92,7 +93,6 @@ Resources:
         Project: !Ref Project
         Owner: !Ref Owner
 
-
   LbdValidationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -105,9 +105,11 @@ Resources:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
         - ResourceName: LbdClassification
-      CodeUri: src/lambdas/classification
+      CodeUri: ../src/lambdas/classification
       Handler: index.handler
       Runtime: python3.13
+      Layers:
+          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-arm64:19
       MemorySize: 128
       Timeout: 10
       ReservedConcurrentExecutions: 2
@@ -123,7 +125,6 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref NewsDataTable
-          TABLE_ARN: !GetAtt NewsDataTable.Arn
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -138,7 +139,6 @@ Resources:
         Project: !Ref Project
         Owner: !Ref Owner
 
-  
   LbdClassificationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -167,7 +167,6 @@ Resources:
         - Key: Owner
           Value: !Ref Owner
 
-  
   Queue:
     Type: AWS::SQS::Queue
     Properties:
@@ -180,7 +179,6 @@ Resources:
           Value: !Ref Project
         - Key: Owner
           Value: !Ref Owner
-
 
 Outputs:
   ApiEndpoint:

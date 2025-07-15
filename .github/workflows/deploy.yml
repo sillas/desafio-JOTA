@@ -7,8 +7,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  S3_STACK_NAME: sam-deployment-bucket-stack
-  APP_STACK_NAME: webhook-processor-stack
+  BUCKET_NAME:  jota-app-bucket
 
 jobs:
   deploy:
@@ -24,49 +23,41 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
     
-    - name: Deploy S3 bucket
+    - name: Check and Create S3 Bucket
+      id: check_bucket
       run: |
-        aws cloudformation deploy \
-          --template-file s3-bucket.yml \
-          --stack-name ${{ env.S3_STACK_NAME }} \
-          --parameter-overrides Environment=dev \
-          --capabilities CAPABILITY_IAM \
-          --region ${{ env.AWS_REGION }}
-    
-    - name: Get bucket name
-      id: bucket
-      run: |
-        BUCKET_NAME=$(aws cloudformation describe-stacks \
-          --stack-name ${{ env.S3_STACK_NAME }} \
-          --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
-          --output text)
-        echo "bucket-name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
-        echo "Deployment bucket: ${BUCKET_NAME}"
-    
+        BUCKET_NAME="${{ env.BUCKET_NAME }}"
+        REGION="${{ env.AWS_REGION }}"
+
+        if aws s3 ls "s3://${BUCKET_NAME}" --region "$REGION" 2>&1 | gerp -q 'NoBucket'; then
+          echo "Creating Bucket ${BUCKET_NAME}..."
+          aws s3 mb "s3://${BUCKET_NAME}" --region "$REGION" || exit 1
+          echo "Bucket ${BUCKET_NAME} created."
+        else
+          echo "Bucket already exists."
+        fi
+      shell: bash 
+
     - name: Set up SAM CLI
+      if: success()
       uses: aws-actions/setup-sam@v2
       with:
         use-installer: true
     
     - name: SAM Build
+      if: success()
       run: |
-        cd workshop
-        sam build
+        sam build --template workshop/deploy.yml
     
     - name: SAM Deploy
+      if: success()
       run: |
-        cd workshop
         sam deploy \
           --no-confirm-changeset \
           --no-fail-on-empty-changeset \
-          --stack-name ${{ env.APP_STACK_NAME }} \
-          --s3-bucket ${{ steps.bucket.outputs.bucket-name }} \
-          --capabilities CAPABILITY_IAM \
-          --region ${{ env.AWS_REGION }}
+          --capabilities CAPABILITY_IAM
     
     - name: Show deployment info
+      if: success()
       run: |
         echo "✅ Deployment completed successfully!"
-        echo "S3 Stack: ${{ env.S3_STACK_NAME }}"
-        echo "App Stack: ${{ env.APP_STACK_NAME }}"
-        echo "Bucket: ${{ steps.bucket.outputs.bucket-name }}"
