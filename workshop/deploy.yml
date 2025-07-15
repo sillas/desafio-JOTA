@@ -149,15 +149,15 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       AttributeDefinitions:
-        - AttributeName: id
+        - AttributeName: status
           AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: 'N'
+        - AttributeName: uuid
+          AttributeType: 'S'
       BillingMode: PAY_PER_REQUEST
       KeySchema:
-        - AttributeName: id
+        - AttributeName: status
           KeyType: HASH
-        - AttributeName: timestamp
+        - AttributeName: uuid
           KeyType: RANGE
       Tags:
         - Key: Environment

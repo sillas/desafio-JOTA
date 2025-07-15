@@ -32,7 +32,7 @@ def sqs_send_message(payload: dict[str, str], aws_request_id: str) -> dict[str, 
             })
 
         message_body = {
-            'timestamp': aws_request_id,
+            'request_id': aws_request_id,
             'data': payload
         }
 
