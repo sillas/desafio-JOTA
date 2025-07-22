@@ -17,7 +17,7 @@ class DB:
         """
 
         try:
-            self.message_table.put_item(
+            self.processed_news_table.put_item(
                 Item=news,
                 ConditionExpression="attribute_not_exists(#uuid)",
                 ExpressionAttributeNames={
