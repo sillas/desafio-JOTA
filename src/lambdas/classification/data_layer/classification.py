@@ -1,15 +1,14 @@
 import json
 from typing import Any
-from load_model import LoadSpacyModel
+from access_layer.load_model import LoadSpacyModel
 
 
 class Classification:
 
     HIERARCHY_THRESHOLD = 1.4
 
-    def __init__(self):
+    def __init__(self, model: LoadSpacyModel):
 
-        model = LoadSpacyModel("sm")
         self.spacy_nlp = model.get_model()
         categories = self._load_categories()
         self.categories = categories["categories"]
@@ -17,6 +16,7 @@ class Classification:
         self.hierarchy = categories["hierarchy"]
 
     def _load_categories(self) -> dict[str, Any]:
+        """Load categories from json file"""
         with open('categories.json', 'r', encoding='utf8') as file:
             return json.load(file)
 
@@ -44,8 +44,11 @@ class Classification:
         """Calculate the sum of weights for matching words."""
         return sum([weight for w in category_list if (w in word) or (word in w)])
 
-    def _analyze_words(self, words_list: list[str], weight: float = 1.0):
-        """Analyze words and update category ranks."""
+    def _analyze_words(self, words_list: list[str], weight: float = 1.0) -> None:
+        """Analyze words and update category ranks.
+        :param words_list: O texto dividido em tokens.
+        :param weight: weight peso base.
+        """
 
         ad_weights = self.weights["secondary"]
         keys = list(ad_weights.keys())
@@ -84,12 +87,10 @@ class Classification:
         self.subtitle_words_list = self._remove_stopwords(text["subtitle"])
         self.article_words_list = self._remove_stopwords(text["article"])
 
-    def process(self, text: dict[str, str]) -> str:
-        """
-        Process the text and determine the final category.
-
-        Returns:
-            str: The determined category
+    def process(self, text: dict[str, str]) -> tuple[str, list[str]]:
+        """ Process the text and determine the final category.
+        :param text: O texto a ser classificado.
+        :returns: The determined category and tags
         """
 
         self._set_text(text)
@@ -113,11 +114,12 @@ class Classification:
 
         # Check if greatest value exceeds threshold
         if (greatest_value > self.HIERARCHY_THRESHOLD * second_value):
-            return greatest_cat
+            return greatest_cat, []
 
         # Use hierarchy for close values
         hierarchy = self.hierarchy
         greatest_cat_index = hierarchy.index(greatest_cat)
         second_cat_index = hierarchy.index(second_cat)
 
-        return greatest_cat if greatest_cat_index < second_cat_index else second_cat
+        category = greatest_cat if greatest_cat_index < second_cat_index else second_cat
+        return category, []

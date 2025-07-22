@@ -6,12 +6,9 @@ from data_layer.handle_message import classify_message
 
 
 def handler(event: Dict[str, Any], context: LambdaContext):
+    """Obtem a notícia da fila SQS para classificação e armazenamento."""
 
     logger.set_correlation_id(context.aws_request_id)
-
-    logger.info("EVENT", extra={
-        "#EVENT": event
-    })
 
     if ("Records" in event):
         for record in event['Records']:

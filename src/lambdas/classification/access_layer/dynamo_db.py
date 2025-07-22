@@ -11,13 +11,9 @@ class DB:
         self.processed_news_table = dynamodb.Table('processed_news')
 
     def store_processed_news(self, news: Dict[str, Any]) -> bool:
-        """
-        Armazena as notícias processadas na tabela do DynamoDB.
-
-        Args:
-            news (dict): Um dicionário representando a notícia a ser armazenada.
-        Returns:
-            bool: True se a notícia foi armazenada com sucesso, False caso contrário.
+        """Armazena as notícias processadas na tabela do DynamoDB.
+        :param news: Um dicionário representando a notícia a ser armazenada.
+        :returns bool: True se a notícia foi armazenada com sucesso, False caso contrário.
         """
 
         try:

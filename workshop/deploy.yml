@@ -163,13 +163,16 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref NewsDataTable
+          S3_BUCKET: !Ref BucketS3
       Policies:
         - Version: '2012-10-17'
           Statement:
             - Effect: Allow
-              Action:
-                - dynamodb:PutItem
+              Action: dynamodb:PutItem
               Resource: !GetAtt NewsDataTable.Arn
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !GetAtt BucketS3.Arn
       CodeUri: ../src/lambdas/classification
       Handler: index.handler
       Runtime: python3.12
@@ -242,6 +245,17 @@ Resources:
         - python3.12
       RetentionPolicy: Retain
 
+  BucketS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
@@ -254,3 +268,7 @@ Outputs:
     Value: !Ref Queue
     Export:
       Name: !Sub "${AWS::StackName}-QueueUrl"
+  
+  NomeDoBucketS3:
+    Description: "O nome do S3 bucket para armazenar os modelos de linguagem."
+    Value: !Ref BucketS3

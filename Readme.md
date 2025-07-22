@@ -38,3 +38,8 @@ sam build --template workshop/deploy.yml
 sam deploy
 sam deploy --guided
 aws cloudformation describe-stacks --stack-name name
+
+
+----------
+chmod +x deploy.sh
+./deploy.sh
