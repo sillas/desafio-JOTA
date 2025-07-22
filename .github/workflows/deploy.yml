@@ -1,63 +1,86 @@
-name: Deploy SAM Application
+name: Deploy CloutFormation
 
 on:
   push:
-    branches: [ main-deploy ]
-  workflow_dispatch:
+    branches:
+      - main-deploy
+    paths:
+      - 'src/**'
+      - cloud_formation_deploy.yml
 
-env:
-  AWS_REGION: us-east-1
-  BUCKET_NAME:  jota-app-bucket
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  Deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-    
-    - name: Check and Create S3 Bucket
-      id: check_bucket
-      run: |
-        BUCKET_NAME="${{ env.BUCKET_NAME }}"
-        REGION="${{ env.AWS_REGION }}"
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        if aws s3 ls "s3://${BUCKET_NAME}" --region "$REGION" 2>&1 | gerp -q 'NoBucket'; then
-          echo "Creating Bucket ${BUCKET_NAME}..."
-          aws s3 mb "s3://${BUCKET_NAME}" --region "$REGION" || exit 1
-          echo "Bucket ${BUCKET_NAME} created."
-        else
-          echo "Bucket already exists."
-        fi
-      shell: bash 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: Set up SAM CLI
-      if: success()
-      uses: aws-actions/setup-sam@v2
-      with:
-        use-installer: true
-    
-    - name: SAM Build
-      if: success()
-      run: |
-        sam build --template workshop/deploy.yml
-    
-    - name: SAM Deploy
-      if: success()
-      run: |
-        sam deploy \
-          --no-confirm-changeset \
-          --no-fail-on-empty-changeset \
-          --capabilities CAPABILITY_IAM
-    
-    - name: Show deployment info
-      if: success()
-      run: |
-        echo "✅ Deployment completed successfully!"
+      - name: Install numpy for Lambda layer
+        run: |
+          mkdir python
+          pip install -t python numpy --platform manylinux2014_aarch64 --only-binary=:all:
+          cd python
+          rm -rf *dist-info
+          cd ..
+          zip -r numpy_layer.zip python
+          mkdir -p src/layers
+          mv numpy_layer.zip src/layers
+          rm -rf python
+
+      - name: Prepare Spacy model
+        env:
+          M_NAME: pt_core_news_sm
+          M_VERSON: 3.8.0   
+          GITHUB_REPO: https://github.com/explosion/spacy-models/releases/download/
+        run: |
+          mkdir work_dir
+          cp ./fragm/${{ env.M_NAME }}-dist-info.zip ./work_dir
+          cd work_dir
+          unzip ./${{ env.M_NAME }}-dist-info.zip
+          curl -L -o ${{ env.M_NAME }}.tar.gz ${{ env.GITHUB_REPO }}${{ env.M_NAME }}-${{ env.M_VERSON }}/${{ env.M_NAME }}-${{ env.M_VERSON }}.tar.gz
+          tar -xzf ${{ env.M_NAME }}.tar.gz
+          zip -r ${{ env.M_NAME }}.zip ${{ env.M_NAME }}-${{ env.M_VERSON }}.dist-info ${{ env.M_NAME }}-${{ env.M_VERSON }}/${{ env.M_NAME }}
+          cd ..
+          mkdir -p models
+          mv work_dir/${{ env.M_NAME }}.zip models/
+          rm -rf work_dir
+
+      - name: Set up SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: SAM Build
+        run: |
+          sam build --template cloud_formation_deploy.yml
+      
+      - name: SAM Deploy
+        if: success()
+        run: |
+          sam deploy \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM
+      
+      - name: Show deployment info
+        if: success()
+        run: |
+          echo "Deployment completed successfully!"
+      
+      
