@@ -1,37 +1,29 @@
+from typing import Any
 from access_layer.s3_handler import load_from_s3
+from loggin_config import logger
 
 
 class LoadSpacyModel:
 
-    def __init__(self, language_size: str['sm', 'lg']):
-        # TODO: Remove before deploy!
-        # sys.path.append('../../layers/numpy')
-        # sys.path.append('../../layers/spacy_custom')
-        # --------------------------
-        self.nlp_model = self.load_model(language_size)
+    def __init__(self):
+        self.nlp_model = self.load_model()
 
-    def load_model(self, language_size: str['sm', 'lg']) -> None:
-        """Carega o modelo de linguagem do S3 e retorna a instância.
-        :param language_size: O tamanho da linguagem que desejo utilizar [sm | bg]
-        """
+    def load_model(self) -> Any:
+        """Carega o modelo de linguagem do S3 e retorna a instância."""
         try:
-            module_loaded = load_from_s3(
-                "pt_core_news_sm.zip" if language_size == 'sm' else "pt_core_news_lg.zip")
+            import pt_core_news_sm
+            return pt_core_news_sm.load()
+        except:
+            logger.info('In production Env. Trying to load model from S3.')
+
+        try:
+            module_loaded = load_from_s3("pt_core_news_sm.zip")
 
             if (not module_loaded):
                 raise Exception(
-                    f"Module pt_core_news_{language_size} not load.")
+                    f"Module pt_core_news_sm not load.")
 
-            if (language_size == 'sm'):
-                import temp.pt_core_news_sm as pt_core_news  # type: ignore
-
-            elif (language_size == 'lg'):
-                import temp.pt_core_news_lg as pt_core_news  # type: ignore
-
-            else:
-                raise Exception(
-                    f"Size {language_size} not allowed. Use only sm or lg.")
-
+            import temp.pt_core_news_sm as pt_core_news  # type: ignore
             return pt_core_news.load()
 
         except Exception as e:

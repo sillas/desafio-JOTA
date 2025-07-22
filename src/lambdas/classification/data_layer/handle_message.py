@@ -5,7 +5,7 @@ from access_layer.dynamo_db import DB
 from loggin_config import logger
 from access_layer.load_model import LoadSpacyModel
 
-model = LoadSpacyModel("sm")
+model = LoadSpacyModel()
 classify = Classification(model)
 db = DB()
 
