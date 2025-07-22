@@ -1,6 +1,7 @@
 # Dirs
-src/layers/*
+src/layers/numpy_layer.zip
 models/*
+python/
 
 # SAM
 .aws-sam/
