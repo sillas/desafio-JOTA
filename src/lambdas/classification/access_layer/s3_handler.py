@@ -32,14 +32,14 @@ def load_from_s3(filename: str) -> bool:
 
         if e.response['Error']['Code'] == 'NoSuchKey':
             logger.exception(
-                f"Erro: O objeto '{filename}' não foi encontrado no bucket '{bucket_name}'.", exc_info=e)
+                f"ERROR'{filename}' not found on bucket '{bucket_name}'.", exc_info=e)
 
         else:
             logger.exception(
-                f"Ocorreu um erro inesperado do Boto3: {e}", exc_info=e)
+                f"ERROR: Boto3 error: {e}", exc_info=e)
 
     except Exception as e:
         logger.exception(
-            f"Ocorreu um erro durante a extração: {e}", exc_info=e)
+            f"ERROR: load_from_s3 exception: {e}", exc_info=e)
 
     return False
