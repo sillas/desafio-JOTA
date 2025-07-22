@@ -19,16 +19,17 @@ class LoadSpacyModel:
     def load_model(self) -> Any:
         """Carega o modelo de linguagem do S3 e retorna a instância."""
         logger.info('Trying to load lang model.')
-        try:
-            import pt_core_news_sm
-            return pt_core_news_sm.load()
-        except:
-            logger.info('Not in local env. Trying to load from /temp folder')
 
         try:
             return self.direct_load()
         except:
-            logger.info('Not in /temp. Trying to load from S3.')
+            logger.info('Not in /temp. Trying to load from local env.')
+
+        try:
+            import pt_core_news_sm
+            return pt_core_news_sm.load()
+        except:
+            logger.info('Not in local env. Trying to load from S3')
 
         try:
             if (not load_from_s3("pt_core_news_sm.zip")):
