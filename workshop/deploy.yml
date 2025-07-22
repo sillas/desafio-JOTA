@@ -45,10 +45,18 @@ Resources:
                 payloadFormatVersion: '2.0'
                 httpMethod: POST
                 type: aws_proxy
-                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LbdValidation.Arn}/invocations
+                uri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaValidation.Arn}/invocations
               responses: 
                 '200':
                   description: 'Success'
+              security:
+                - api_key: []
+        components:
+          securitySchemes:
+            api_key:
+              type: apiKey
+              name: x-api-key
+              in: header
       EndpointConfiguration:
         Type: REGIONAL
       Tags:
@@ -56,20 +64,48 @@ Resources:
         Project: !Ref Project
         Owner: !Ref Owner
 
-  LbdValidation:
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub ${AWS::StackName}-ApiKey
+      Enabled: true
+      StageKeys:
+        - RestApiId: !Ref Api
+          StageName: !Ref Environment
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref Project
+        Owner: !Ref Owner
+  
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub ${AWS::StackName}-UsagePlan
+      ApiStages:
+        - ApiId: !Ref Api
+          Stage: !Ref Environment
+      Throttle:
+        RateLimit: 2 # TODO: Alterar para produção
+        BurstLimit: 3 # TODO: Alterar para produção
+
+  ApiUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan
+
+  LambdaValidation:
     Type: AWS::Serverless::Function
     Properties:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
-        - ResourceName: LbdValidation
-      CodeUri: ../src/lambdas/validation
-      Handler: index.handler
-      Runtime: python3.13
+        - ResourceName: LambdaValidation
       Layers:
-          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-arm64:19
-      MemorySize: 128
-      Timeout: 10
-      ReservedConcurrentExecutions: 2
+          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-arm64:19
+      MemorySize: 128 # TODO: ajustar após os testes
+      Timeout: 10 # TODO: ajustar após os testes
+      ReservedConcurrentExecutions: 2 # TODO: Alterar para produção 
       Events:
         ApiPOSTwebhook:
           Type: Api
@@ -86,6 +122,9 @@ Resources:
             - Effect: Allow
               Action: sqs:SendMessage
               Resource: !GetAtt Queue.Arn
+      CodeUri: ../src/lambdas/validation
+      Handler: index.handler
+      Runtime: python3.12
       Architectures:
         - arm64
       Tags:
@@ -93,35 +132,34 @@ Resources:
         Project: !Ref Project
         Owner: !Ref Owner
 
-  LbdValidationLogGroup:
+  LambdaValidationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${LbdValidation}
+      LogGroupName: !Sub /aws/lambda/${LambdaValidation}
       RetentionInDays: !Ref RetentionDays
   
-  LbdClassification:
+  LambdaClassification:
     Type: AWS::Serverless::Function
     Properties:
       Description: !Sub
         - Stack ${AWS::StackName} Function ${ResourceName}
-        - ResourceName: LbdClassification
-      CodeUri: ../src/lambdas/classification
-      Handler: index.handler
-      Runtime: python3.13
+        - ResourceName: LambdaClassification
       Layers:
-          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-arm64:19
-      MemorySize: 128
-      Timeout: 10
-      ReservedConcurrentExecutions: 2
+          - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-arm64:19
+          - !Ref NumpyLayer
+          - !Ref SpacyLayer
+      MemorySize: 128 # TODO: ajustar após os testes
+      Timeout: 10 # TODO: ajustar após os testes
+      ReservedConcurrentExecutions: 2 # TODO: Alterar para produção 
       Events:
         Queue:
           Type: SQS
           Properties:
             Queue: !GetAtt Queue.Arn
-            BatchSize: 10
-            MaximumBatchingWindowInSeconds: 30
+            BatchSize: 10 # TODO: Alterar para produção 
+            MaximumBatchingWindowInSeconds: 30 # TODO: Alterar para produção 
             ScalingConfig:
-              MaximumConcurrency: 2
+              MaximumConcurrency: 2 # TODO: Alterar para produção 
       Environment:
         Variables:
           TABLE_NAME: !Ref NewsDataTable
@@ -132,6 +170,9 @@ Resources:
               Action:
                 - dynamodb:PutItem
               Resource: !GetAtt NewsDataTable.Arn
+      CodeUri: ../src/lambdas/classification
+      Handler: index.handler
+      Runtime: python3.12
       Architectures:
         - arm64
       Tags:
@@ -139,15 +180,16 @@ Resources:
         Project: !Ref Project
         Owner: !Ref Owner
 
-  LbdClassificationLogGroup:
+  LambdaClassificationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/lambda/${LbdClassification}
+      LogGroupName: !Sub /aws/lambda/${LambdaClassification}
       RetentionInDays: !Ref RetentionDays
   
   NewsDataTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: processed_news
       AttributeDefinitions:
         - AttributeName: status
           AttributeType: S
@@ -170,7 +212,7 @@ Resources:
   Queue:
     Type: AWS::SQS::Queue
     Properties:
-      MessageRetentionPeriod: 345600
+      MessageRetentionPeriod: 345600 # 4 dias
       ReceiveMessageWaitTimeSeconds: 20
       Tags:
         - Key: Environment
@@ -179,6 +221,26 @@ Resources:
           Value: !Ref Project
         - Key: Owner
           Value: !Ref Owner
+  
+  NumpyLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: NumpyLayer
+      Description: Camada para o Numpy
+      ContentUri: ../src/layers/numpy/
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Retain
+  
+  SpacyLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: SpacyLayer
+      Description: Camada para o Spacy customizado
+      ContentUri: ../src/layers/spacy_custom/
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Retain
 
 Outputs:
   ApiEndpoint:

@@ -27,3 +27,14 @@ sam deploy --guided
 Apagando todos os itens que houver.
 
 2 - Depois, execute o script [] para apagar todos os outros serviços (incluindo este bucket).
+
+Comandos SAM:
+aws --version
+aws configure
+
+sam validate --template workshop/deploy.yml --lint
+sam build --template workshop/deploy.yml
+
+sam deploy
+sam deploy --guided
+aws cloudformation describe-stacks --stack-name name
