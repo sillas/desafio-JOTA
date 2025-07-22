@@ -32,7 +32,7 @@ def load_from_s3(filename: str) -> bool:
 
         if e.response['Error']['Code'] == 'NoSuchKey':
             logger.exception(
-                f"Erro: O objeto '{object_key}' não foi encontrado no bucket '{bucket_name}'.", exc_info=e)
+                f"Erro: O objeto '{filename}' não foi encontrado no bucket '{bucket_name}'.", exc_info=e)
 
         else:
             logger.exception(
