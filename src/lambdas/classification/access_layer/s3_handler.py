@@ -21,7 +21,8 @@ def load_from_s3(object_key: str) -> bool:
     bucket_name = os.getenv('S3_BUCKET')
 
     try:
-        s3_client.download_file(bucket_name, object_key, zip_filepath)
+        s3_client.download_file(
+            bucket_name, f"spacy_model/{object_key}", zip_filepath)
 
         with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
             zip_ref.extractall(extract_path)

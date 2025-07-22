@@ -43,15 +43,15 @@ jobs:
           GITHUB_REPO: https://github.com/explosion/spacy-models/releases/download/
         run: |
           mkdir work_dir
-          cp ./fragm/${{ env.M_NAME }}-dist-info.zip ./work_dir
+          cp ./fragm/${M_NAME}-dist-info.zip ./work_dir
           cd work_dir
-          unzip ./${{ env.M_NAME }}-dist-info.zip
-          curl -L -o ${{ env.M_NAME }}.tar.gz ${{ env.GITHUB_REPO }}${{ env.M_NAME }}-${{ env.M_VERSON }}/${{ env.M_NAME }}-${{ env.M_VERSON }}.tar.gz
-          tar -xzf ${{ env.M_NAME }}.tar.gz
-          zip -r ${{ env.M_NAME }}.zip ${{ env.M_NAME }}-${{ env.M_VERSON }}.dist-info ${{ env.M_NAME }}-${{ env.M_VERSON }}/${{ env.M_NAME }}
+          unzip ./${M_NAME}-dist-info.zip
+          curl -L -o ${M_NAME}.tar.gz ${GITHUB_REPO}${M_NAME}-${M_VERSON}/${M_NAME}-${M_VERSON}.tar.gz
+          tar -xzf ${M_NAME}.tar.gz
+          zip -r ${M_NAME}.zip ${M_NAME}-${M_VERSON}.dist-info ${M_NAME}-${M_VERSON}/${M_NAME}
           cd ..
           mkdir -p models
-          mv work_dir/${{ env.M_NAME }}.zip models/
+          mv work_dir/${M_NAME}.zip models/
           rm -rf work_dir
 
       - name: Set up SAM CLI
@@ -78,6 +78,26 @@ jobs:
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_IAM
       
+      - name: Get S3 Bucket Name from Output
+        if: success()
+        id: get-bucket
+        run: |
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name jota-app \
+            --query "Stacks[0].Outputs[?OutputKey=='NomeDoBucketS3'].OutputValue" \
+            --output text)
+          echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
+      
+      - deploy_model_to_s3:
+        if: success()
+        env:
+          S3_BUCKET: ${{ steps.get-bucket.outputs.bucket_name }}
+        run: |
+          cd models
+          aws s3 cp pt_core_news_sm.zip s3://${S3_BUCKET}/spacy_model
+      
+
+
       - name: Show deployment info
         if: success()
         run: |
