@@ -7,7 +7,7 @@ REGION="us-east-1"
 LOCAL_MODELS_PATH="models/"
 
 echo "Passo 1: SAM Build..."
-sam build
+sam build --template cloud_formation_deploy.yml
 
 echo "Passo 2: Deploy da infraestrutura..."
 sam deploy \

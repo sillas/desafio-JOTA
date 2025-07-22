@@ -3,7 +3,6 @@ version = 0.1
 [default.deploy.parameters]
 stack_name = "jota-app"
 resolve_s3 = true
-s3_bucket = "jota-app-bucket"
 s3_prefix = "jota-app"
 region = "us-east-1"
 confirm_changeset = true
