@@ -1,14 +1,13 @@
-# Desafio proposto pela JOTA
+# Expeprimento com o Spacy no Lambda
 
 ## Objetivo
-Desenvolver um sistema de classificação automática de notícias.
+Desenvolver um sistema de classificação automática de notícias usando o Spacy.
 
 O sistema deve receber notícias via webhook, e classificar entre categorias e tags apropriadas.
-De acordo com os requisitos, é obrigatório utilizar Docker, tecnologias serveles como Lambda, assim como o Django, embora, em um projeto real como este, o Django não seja realmente necessário.
 
 Arquitetura:
 O sistema é dividido em três partes independentes:
-- 1. Webhook + classificação de notícias (Este repositório);
+- 1. Webhook + classificação de notícias;
 - 2. Sincronização;
 - 3. Consulta das notícias classificadas.
 
@@ -91,4 +90,4 @@ Instruções para deploy:
 7. - Para limpar tudo:
      - Por segurança, você deverá acessar o console da AWS, identificar o bucket que está sendo utilizado, e limpa-lo completamente.
        Apagando todos os itens que houver.
-    - [instruções para remover a stack "jota-app" do cloudFormation aqui]
+    - [instruções para remover a stack "classification-app" do cloudFormation aqui]

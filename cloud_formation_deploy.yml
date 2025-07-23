@@ -8,7 +8,7 @@ Parameters:
   
   Project:
     Type: String
-    Default: JNewsClassifier
+    Default: NewsClassifier
     Description: 'Project name'
 
   Environment:

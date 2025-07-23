@@ -2,7 +2,7 @@
 set -e # Encerra o script se houver erro
 
 # --- Configuração ---
-STACK_NAME="jota-app"
+STACK_NAME="classification-app"
 REGION="us-east-1"
 LOCAL_MODELS_PATH="models/"
 

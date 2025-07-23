@@ -83,7 +83,7 @@ jobs:
         id: get-bucket
         run: |
           BUCKET_NAME=$(aws cloudformation describe-stacks \
-            --stack-name jota-app \
+            --stack-name classification-app \
             --query "Stacks[0].Outputs[?OutputKey=='NomeDoBucketS3'].OutputValue" \
             --output text)
           echo "bucket_name=$BUCKET_NAME" >> "$GITHUB_OUTPUT"
